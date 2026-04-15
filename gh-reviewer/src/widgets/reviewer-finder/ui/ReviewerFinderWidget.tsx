@@ -6,44 +6,44 @@ import { useSettingsStorage } from '../../../shared/hooks/useSettingsStorage';
 import type { Settings } from '../../../shared/types/settings';
 
 export function ReviewerFinderWidget() {
-  const { settings, setSettings, resetSettings } = useSettingsStorage();
-  const [isSettingsOpen, setIsSettingsOpen] = useState(true);
+    const { settings, setSettings, resetSettings } = useSettingsStorage();
+    const [isSettingsOpen, setIsSettingsOpen] = useState(true);
 
-  const handleToggleSettings = useCallback(() => {
-    setIsSettingsOpen((prev) => !prev);
-  }, []);
+    const handleToggleSettings = useCallback(() => {
+        setIsSettingsOpen((prev) => !prev);
+    }, []);
 
-  const handleChangeSettings = useCallback(
-    (field: keyof Settings, value: string) => {
-      setSettings((prev) => ({
-        ...prev,
-        [field]: value,
-      }));
-    },
-    [setSettings],
-  );
+    const handleChangeSettings = useCallback(
+        (field: keyof Settings, value: string) => {
+            setSettings((prev) => ({
+                ...prev,
+                [field]: value,
+            }));
+        },
+        [setSettings]
+    );
 
-  const handleResetSettings = useCallback(() => {
-    resetSettings();
-  }, [resetSettings]);
+    const handleResetSettings = useCallback(() => {
+        resetSettings();
+    }, [resetSettings]);
 
-  return (
-    <div className="page">
-      <div className="container">
-        <div className="hero">
-          <h1>Reviewer Finder</h1>
+    return (
+        <div className="page">
+            <div className="container">
+                <div className="hero">
+                    <h1>Reviewer Finder</h1>
+                </div>
+
+                <SettingsPanel
+                    settings={settings}
+                    isOpen={isSettingsOpen}
+                    onToggle={handleToggleSettings}
+                    onChange={handleChangeSettings}
+                    onReset={handleResetSettings}
+                />
+
+                <ReviewerSearch settings={settings} />
+            </div>
         </div>
-
-        <SettingsPanel
-          settings={settings}
-          isOpen={isSettingsOpen}
-          onToggle={handleToggleSettings}
-          onChange={handleChangeSettings}
-          onReset={handleResetSettings}
-        />
-
-        <ReviewerSearch settings={settings} />
-      </div>
-    </div>
-  );
+    );
 }
