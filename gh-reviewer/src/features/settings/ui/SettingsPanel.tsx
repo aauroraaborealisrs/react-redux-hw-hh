@@ -1,10 +1,11 @@
-import type { Settings } from '../../../shared/types/settings.ts';
+import type { Settings } from '../../../shared/types/settings';
 
 type SettingsPanelProps = {
   settings: Settings;
   isOpen: boolean;
   onToggle: () => void;
   onChange: (field: keyof Settings, value: string) => void;
+  onReset: () => void;
 };
 
 export function SettingsPanel({
@@ -12,20 +13,31 @@ export function SettingsPanel({
   isOpen,
   onToggle,
   onChange,
+  onReset,
 }: SettingsPanelProps) {
   return (
     <section className="card">
       <div className="settings-header">
         <div>
-          <h2>Настройки</h2>
+          <h2>Settings</h2>
         </div>
 
-        <button type="button" onClick={onToggle}>
-          {isOpen ? 'Скрыть' : 'Показать'}
-        </button>
+        <div className="settings-actions">
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={onReset}
+          >
+            Сбросить
+          </button>
+
+          <button type="button" onClick={onToggle}>
+            {isOpen ? 'Скрыть' : 'Показать'}
+          </button>
+        </div>
       </div>
 
-      {isOpen && (
+      {isOpen ? (
         <div className="form-grid">
           <label>
             <span>login</span>
@@ -50,11 +62,22 @@ export function SettingsPanel({
             <input
               value={settings.blacklist}
               onChange={(event) => onChange('blacklist', event.target.value)}
-              placeholder="user1, user2"
+              placeholder='user1, user2 или ["user1", "user2"]'
             />
           </label>
+
+          <label>
+            <span>mode</span>
+            <select
+              value={settings.mode}
+              onChange={(event) => onChange('mode', event.target.value)}
+            >
+              <option value="random">random</option>
+              <option value="contributions">contributions</option>
+            </select>
+          </label>
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

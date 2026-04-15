@@ -1,7 +1,7 @@
 import { UserInfoCard } from '../../../entities/github-user/ui/UserInfoCard';
 import type { Settings } from '../../../shared/types/settings';
-import { useReviewerSearch } from '../model/useReviewerSearch';
 
+import { useReviewerSearch } from '../model/useReviewerSearch';
 import { ReviewerHeader } from './ReviewerHeader';
 import { ReviewerResult } from './ReviewerResult';
 import { ReviewerRoulette } from './ReviewerRoulette';

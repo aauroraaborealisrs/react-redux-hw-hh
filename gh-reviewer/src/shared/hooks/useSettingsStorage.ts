@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 
-import { SETTINGS_STORAGE_KEY } from '../config/storage.ts';
+import { SETTINGS_STORAGE_KEY } from '../config/storage';
 import type { Settings } from '../types/settings';
 
-const defaultSettings: Settings = {
+export const defaultSettings: Settings = {
   login: '',
   repo: '',
   blacklist: '',
+  mode: 'random',
 };
 
 function loadSettings(): Settings {
@@ -23,6 +24,7 @@ function loadSettings(): Settings {
       login: parsed.login ?? '',
       repo: parsed.repo ?? '',
       blacklist: parsed.blacklist ?? '',
+      mode: parsed.mode === 'contributions' ? 'contributions' : 'random',
     };
   } catch {
     return defaultSettings;
@@ -36,8 +38,14 @@ export function useSettingsStorage() {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
   }, [settings]);
 
+  const resetSettings = () => {
+    localStorage.removeItem(SETTINGS_STORAGE_KEY);
+    setSettings(defaultSettings);
+  };
+
   return {
     settings,
     setSettings,
+    resetSettings,
   };
 }

@@ -20,7 +20,9 @@ export function ReviewerResult({ reviewer }: ReviewerResultProps) {
       />
 
       <div className="result-login">@{reviewer.login}</div>
-
+      <div className="result-meta">
+  contributions: {reviewer.contributions ?? '—'}
+</div>
       <a href={reviewer.html_url} target="_blank" rel="noreferrer">
         GitHub
       </a>

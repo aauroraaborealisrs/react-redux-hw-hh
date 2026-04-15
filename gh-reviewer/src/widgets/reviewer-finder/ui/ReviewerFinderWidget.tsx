@@ -6,7 +6,7 @@ import { useSettingsStorage } from '../../../shared/hooks/useSettingsStorage';
 import type { Settings } from '../../../shared/types/settings';
 
 export function ReviewerFinderWidget() {
-  const { settings, setSettings } = useSettingsStorage();
+  const { settings, setSettings, resetSettings } = useSettingsStorage();
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
 
   const handleToggleSettings = useCallback(() => {
@@ -23,11 +23,16 @@ export function ReviewerFinderWidget() {
     [setSettings],
   );
 
+  const handleResetSettings = useCallback(() => {
+    resetSettings();
+  }, [resetSettings]);
+
   return (
     <div className="page">
       <div className="container">
         <div className="hero">
           <h1>Reviewer Finder</h1>
+          <p>Поиск случайного ревьюера среди контрибьюторов GitHub</p>
         </div>
 
         <SettingsPanel
@@ -35,6 +40,7 @@ export function ReviewerFinderWidget() {
           isOpen={isSettingsOpen}
           onToggle={handleToggleSettings}
           onChange={handleChangeSettings}
+          onReset={handleResetSettings}
         />
 
         <ReviewerSearch settings={settings} />

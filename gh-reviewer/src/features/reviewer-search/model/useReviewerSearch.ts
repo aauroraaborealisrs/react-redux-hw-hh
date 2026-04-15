@@ -11,227 +11,282 @@ const VISIBLE_ITEMS = 5;
 const CENTER_INDEX = Math.floor(VISIBLE_ITEMS / 2);
 
 type UseReviewerSearchResult = {
-  contributors: GithubUser[];
-  filteredCandidates: GithubUser[];
-  loading: boolean;
-  error: string;
-  selectedReviewer: GithubUser | null;
-  isAnimating: boolean;
-  animatedList: GithubUser[];
-  offsetIndex: number;
-  itemHeight: number;
-  visibleItems: number;
-  centerIndex: number;
-  handleFindReviewer: () => Promise<void>;
+    contributors: GithubUser[];
+    filteredCandidates: GithubUser[];
+    loading: boolean;
+    error: string;
+    selectedReviewer: GithubUser | null;
+    isAnimating: boolean;
+    animatedList: GithubUser[];
+    offsetIndex: number;
+    itemHeight: number;
+    visibleItems: number;
+    centerIndex: number;
+    handleFindReviewer: () => Promise<void>;
 };
 
-export function useReviewerSearch(
-  settings: Settings,
-): UseReviewerSearchResult {
-  const [contributors, setContributors] = useState<GithubUser[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [_currentCandidate, setCurrentCandidate] =
-    useState<GithubUser | null>(null);
-  const [selectedReviewer, setSelectedReviewer] = useState<GithubUser | null>(
-    null,
-  );
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [animatedList, setAnimatedList] = useState<GithubUser[]>([]);
-  const [offsetIndex, setOffsetIndex] = useState(0);
+function pickTopContributor(candidates: GithubUser[]): GithubUser | null {
+    if (candidates.length === 0) {
+        return null;
+    }
 
-  const intervalRef = useRef<number | null>(null);
-  const timeoutRef = useRef<number | null>(null);
+    return candidates.reduce((topCandidate, currentCandidate) => {
+        const topContributions = topCandidate.contributions ?? 0;
+        const currentContributions = currentCandidate.contributions ?? 0;
 
-  const blacklist = useMemo(
-    () => parseBlacklist(settings.blacklist),
-    [settings.blacklist],
-  );
+        if (currentContributions > topContributions) {
+            return currentCandidate;
+        }
 
-  const filteredCandidates = useMemo(() => {
-    const currentUser = settings.login.trim().toLowerCase();
-    const blacklistSet = new Set(blacklist);
-
-    return contributors.filter((user) => {
-      const candidateLogin = user.login.toLowerCase();
-
-      if (candidateLogin === currentUser) {
-        return false;
-      }
-
-      if (blacklistSet.has(candidateLogin)) {
-        return false;
-      }
-
-      return true;
+        return topCandidate;
     });
-  }, [blacklist, contributors, settings.login]);
+}
 
-  const clearAnimation = useCallback(() => {
-    if (intervalRef.current !== null) {
-      window.clearInterval(intervalRef.current);
-      intervalRef.current = null;
+function pickWinner(candidates: GithubUser[], mode: Settings['mode']): GithubUser | null {
+    if (candidates.length === 0) {
+        return null;
     }
 
-    if (timeoutRef.current !== null) {
-      window.clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
+    if (mode === 'contributions') {
+        return pickTopContributor(candidates);
     }
-  }, []);
 
-  useEffect(() => () => {
-      clearAnimation();
+    return candidates[Math.floor(Math.random() * candidates.length)] ?? null;
+}
+
+function buildVisibleList(candidates: GithubUser[]): GithubUser[] {
+    if (candidates.length === 0) {
+        return [];
+    }
+
+    if (candidates.length >= VISIBLE_ITEMS) {
+        return candidates;
+    }
+
+    const result: GithubUser[] = [];
+    let index = 0;
+
+    while (result.length < VISIBLE_ITEMS) {
+        result.push(candidates[index % candidates.length]);
+        index += 1;
+    }
+
+    return result;
+}
+
+export function useReviewerSearch(settings: Settings): UseReviewerSearchResult {
+    const [contributors, setContributors] = useState<GithubUser[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [_currentCandidate, setCurrentCandidate] = useState<GithubUser | null>(null);
+    const [selectedReviewer, setSelectedReviewer] = useState<GithubUser | null>(null);
+    const [isAnimating, setIsAnimating] = useState(false);
+    const [animatedList, setAnimatedList] = useState<GithubUser[]>([]);
+    const [offsetIndex, setOffsetIndex] = useState(0);
+
+    const intervalRef = useRef<number | null>(null);
+
+    const blacklist = useMemo(() => parseBlacklist(settings.blacklist), [settings.blacklist]);
+
+    const filteredCandidates = useMemo(() => {
+        const currentUser = settings.login.trim().toLowerCase();
+        const blacklistSet = new Set(blacklist);
+
+        return contributors.filter((user) => {
+            const candidateLogin = user.login.toLowerCase();
+
+            if (user.type === 'Bot' || candidateLogin.endsWith('[bot]')) {
+                return false;
+            }
+
+            if (candidateLogin === currentUser) {
+                return false;
+            }
+
+            if (blacklistSet.has(candidateLogin)) {
+                return false;
+            }
+
+            return true;
+        });
+    }, [blacklist, contributors, settings.login]);
+
+    const clearAnimation = useCallback(() => {
+        if (intervalRef.current !== null) {
+            window.clearInterval(intervalRef.current);
+            intervalRef.current = null;
+        }
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            clearAnimation();
+        };
     }, [clearAnimation]);
 
-  const buildAnimatedList = useCallback((candidates: GithubUser[]) => {
-    if (candidates.length === 0) {
-      return [];
-    }
-
-    const repeats = Math.max(8, Math.ceil(30 / candidates.length));
-
-    return Array.from({ length: repeats }, () => candidates).flat();
-  }, []);
-
-  const runAnimation = useCallback(
-    (candidates: GithubUser[]) => {
-      clearAnimation();
-      setIsAnimating(true);
-      setSelectedReviewer(null);
-
-      const rouletteList = buildAnimatedList(candidates);
-      setAnimatedList(rouletteList);
-
-      const minStart = CENTER_INDEX;
-      const maxStart = rouletteList.length - VISIBLE_ITEMS;
-      const startIndex = Math.min(minStart, Math.max(0, maxStart));
-
-      setOffsetIndex(startIndex);
-      setCurrentCandidate(rouletteList[startIndex + CENTER_INDEX] ?? null);
-
-      const winnerIndexInsideCandidates = Math.floor(
-        Math.random() * candidates.length,
-      );
-
-      const safeStopBase = Math.min(
-        rouletteList.length - VISIBLE_ITEMS,
-        Math.max(10, Math.floor(rouletteList.length * 0.7)),
-      );
-
-      let stopIndex = safeStopBase;
-
-      while (
-        stopIndex + CENTER_INDEX < rouletteList.length &&
-        rouletteList[stopIndex + CENTER_INDEX]?.login !==
-          candidates[winnerIndexInsideCandidates].login
-      ) {
-        stopIndex += 1;
-      }
-
-      if (stopIndex + CENTER_INDEX >= rouletteList.length) {
-        stopIndex = Math.max(0, rouletteList.length - VISIBLE_ITEMS);
-      }
-
-      let currentIndex = startIndex;
-
-      intervalRef.current = window.setInterval(() => {
-        currentIndex += 1;
-
-        if (currentIndex > stopIndex) {
-          currentIndex = stopIndex;
-        }
-
-        setOffsetIndex(currentIndex);
-        setCurrentCandidate(rouletteList[currentIndex + CENTER_INDEX] ?? null);
-      }, 85);
-
-      timeoutRef.current = window.setTimeout(() => {
+    useEffect(() => {
         clearAnimation();
+        setAnimatedList([]);
+        setOffsetIndex(0);
         setIsAnimating(false);
+        setCurrentCandidate(null);
+        setSelectedReviewer(null);
+        setError('');
+    }, [settings.mode, clearAnimation]);
 
-        const winner = rouletteList[stopIndex + CENTER_INDEX] ?? null;
+    const runAnimation = useCallback(
+        (candidates: GithubUser[]) => {
+            clearAnimation();
+            setSelectedReviewer(null);
 
-        setOffsetIndex(stopIndex);
-        setCurrentCandidate(winner);
-        setSelectedReviewer(winner);
-      }, 3200);
-    },
-    [buildAnimatedList, clearAnimation],
-  );
+            const winner = pickWinner(candidates, settings.mode);
 
-  const handleFindReviewer = useCallback(async () => {
-    setError('');
-    setSelectedReviewer(null);
-    setCurrentCandidate(null);
-    setIsAnimating(false);
-    clearAnimation();
+            if (!winner) {
+                setIsAnimating(false);
+                return;
+            }
 
-    const login = settings.login.trim();
-    const repo = settings.repo.trim();
+            const visibleList = buildVisibleList(candidates);
+            const maxOffset = Math.max(0, visibleList.length - VISIBLE_ITEMS);
 
-    if (!login) {
-      setError('Укажи login текущего пользователя');
-      return;
-    }
+            if (settings.mode === 'contributions') {
+                setAnimatedList([]);
+                setOffsetIndex(0);
+                setCurrentCandidate(winner);
+                setSelectedReviewer(winner);
+                setIsAnimating(false);
+                return;
+            }
 
-    if (!repo) {
-      setError('Укажи repo');
-      return;
-    }
+            setAnimatedList(visibleList);
+            setIsAnimating(true);
 
-    if (!validateRepo(repo)) {
-      setError('repo должен быть в формате owner/repo');
-      return;
-    }
+            let currentIndex = 0;
+            let direction = 1;
+            let ticks = 0;
+            const totalTicks = 10;
 
-    try {
-      setLoading(true);
+            setOffsetIndex(currentIndex);
+            setCurrentCandidate(visibleList[currentIndex + CENTER_INDEX] ?? null);
 
-      const users = await fetchContributors(repo);
-      setContributors(users);
+            intervalRef.current = window.setInterval(() => {
+                ticks += 1;
 
-      const blacklistSet = new Set(parseBlacklist(settings.blacklist));
-      const currentUser = login.toLowerCase();
+                if (maxOffset > 0) {
+                    if (currentIndex >= maxOffset) {
+                        direction = -1;
+                    } else if (currentIndex <= 0) {
+                        direction = 1;
+                    }
 
-      const candidates = users.filter((user) => {
-        const candidateLogin = user.login.toLowerCase();
+                    currentIndex += direction;
+                } else {
+                    currentIndex = 0;
+                }
 
-        if (candidateLogin === currentUser) {
-          return false;
+                setOffsetIndex(currentIndex);
+                setCurrentCandidate(visibleList[currentIndex + CENTER_INDEX] ?? null);
+
+                if (ticks >= totalTicks) {
+                    clearAnimation();
+
+                    const winnerIndex = visibleList.findIndex((user) => user.login === winner.login);
+                    const finalOffset = Math.min(Math.max(0, winnerIndex - CENTER_INDEX), maxOffset);
+
+                    setOffsetIndex(finalOffset);
+                    setCurrentCandidate(winner);
+                    setSelectedReviewer(winner);
+                    setIsAnimating(false);
+                }
+            }, 100);
+        },
+        [clearAnimation, settings.mode]
+    );
+
+    const handleFindReviewer = useCallback(async () => {
+        setError('');
+        setSelectedReviewer(null);
+        setCurrentCandidate(null);
+        setIsAnimating(false);
+        setAnimatedList([]);
+        setOffsetIndex(0);
+        clearAnimation();
+
+        const login = settings.login.trim();
+        const repo = settings.repo.trim();
+
+        if (!login) {
+            setError('Укажи login текущего пользователя');
+            return;
         }
 
-        if (blacklistSet.has(candidateLogin)) {
-          return false;
+        if (!repo) {
+            setError('Укажи repo');
+            return;
         }
 
-        return true;
-      });
+        if (!validateRepo(repo)) {
+            setError('repo должен быть в формате owner/repo');
+            return;
+        }
 
-      if (candidates.length === 0) {
-        setError('После фильтрации не осталось кандидатов');
-        return;
-      }
+        try {
+            setLoading(true);
 
-      runAnimation(candidates);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
-    } finally {
-      setLoading(false);
-    }
-  }, [clearAnimation, runAnimation, settings]);
+            const users = await fetchContributors(repo);
+            setContributors(users);
 
-  return {
-    contributors,
-    filteredCandidates,
-    loading,
-    error,
-    selectedReviewer,
-    isAnimating,
-    animatedList,
-    offsetIndex,
-    itemHeight: ITEM_HEIGHT,
-    visibleItems: VISIBLE_ITEMS,
-    centerIndex: CENTER_INDEX,
-    handleFindReviewer,
-  };
+            if (users.length === 0) {
+                setError('У репозитория нет доступных контрибьюторов');
+                return;
+            }
+
+            const blacklistSet = new Set(parseBlacklist(settings.blacklist));
+            const currentUser = login.toLowerCase();
+
+            const candidates = users.filter((user) => {
+                const candidateLogin = user.login.toLowerCase();
+
+                if (user.type === 'Bot' || candidateLogin.endsWith('[bot]')) {
+                    return false;
+                }
+
+                if (candidateLogin === currentUser) {
+                    return false;
+                }
+
+                if (blacklistSet.has(candidateLogin)) {
+                    return false;
+                }
+
+                return true;
+            });
+
+            if (candidates.length === 0) {
+                setError('После фильтрации не осталось кандидатов');
+                return;
+            }
+
+            runAnimation(candidates);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
+        } finally {
+            setLoading(false);
+        }
+    }, [clearAnimation, runAnimation, settings]);
+
+    return {
+        contributors,
+        filteredCandidates,
+        loading,
+        error,
+        selectedReviewer,
+        isAnimating,
+        animatedList,
+        offsetIndex,
+        itemHeight: ITEM_HEIGHT,
+        visibleItems: VISIBLE_ITEMS,
+        centerIndex: CENTER_INDEX,
+        handleFindReviewer,
+    };
 }

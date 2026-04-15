@@ -207,8 +207,6 @@ button:disabled {
 
 
 
-
-
 .cards-grid--two {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -238,16 +236,14 @@ button:disabled {
   gap: 12px;
   padding: 0 16px;
   opacity: 0.35;
-  transform: scale(0.96);
+  box-sizing: border-box;
   transition:
     opacity 0.18s ease,
-    transform 0.18s ease,
     background-color 0.18s ease;
 }
 
 .reviewer-roulette__item.is-active {
   opacity: 1;
-  transform: scale(1);
   background: rgba(16, 185, 129, 0.08);
 }
 
@@ -281,7 +277,8 @@ button:disabled {
   border: 2px solid #10b981;
   border-radius: 14px;
   pointer-events: none;
-  box-shadow: 0 0 0 9999px rgba(255, 255, 255, 0.02);
+  box-sizing: border-box;
+  z-index: 3;
 }
 
 .reviewer-roulette__fade {
@@ -321,4 +318,37 @@ button:disabled {
   .reviewer-roulette {
     max-width: 100%;
   }
+}
+
+.settings-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.button-secondary {
+  background: white;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+
+select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 10px 12px;
+  outline: none;
+  font: inherit;
+  background: white;
+}
+
+select:focus {
+  border-color: #0f172a;
+}
+
+.result-meta {
+  font-size: 14px;
+  color: #047857;
+  margin-top: 4px;
+  margin-bottom: 10px;
 }
