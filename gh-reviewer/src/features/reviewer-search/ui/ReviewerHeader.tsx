@@ -16,9 +16,9 @@ export function ReviewerHeader({
   return (
     <div className="action-row">
       <div>
-        <h2>Поиск ревьюера</h2>
+        <h2>Search reviewer</h2>
         <p>
-          Загружено контрибьюторов: {contributorsCount} · После фильтрации:{' '}
+          Contributors in the repo: {contributorsCount} After filters:{' '}
           {filteredCount}
         </p>
       </div>
@@ -28,7 +28,7 @@ export function ReviewerHeader({
         onClick={onFind}
         disabled={loading || isAnimating}
       >
-        {loading ? 'Загрузка...' : isAnimating ? 'Выбираем...' : 'Найти ревьюера'}
+        {loading ? 'Loading...' : isAnimating ? 'Searching...' : 'Find'}
       </button>
     </div>
   );

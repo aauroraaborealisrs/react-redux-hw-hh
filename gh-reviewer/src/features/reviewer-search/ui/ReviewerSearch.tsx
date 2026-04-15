@@ -29,9 +29,9 @@ export function ReviewerSearch({ settings }: ReviewerSearchProps) {
   return (
     <>
       <div className="cards-grid cards-grid--two">
-        <UserInfoCard title="Текущий пользователь" value={settings.login.trim()} />
+        <UserInfoCard title="Current user" value={settings.login.trim()} />
         <UserInfoCard
-          title="Выбранный ревьюер"
+          title="Selected reviewer"
           value={selectedReviewer?.login || ''}
           success
         />

@@ -32,7 +32,6 @@ export function ReviewerFinderWidget() {
       <div className="container">
         <div className="hero">
           <h1>Reviewer Finder</h1>
-          <p>Поиск случайного ревьюера среди контрибьюторов GitHub</p>
         </div>
 
         <SettingsPanel

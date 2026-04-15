@@ -22,17 +22,28 @@ export function SettingsPanel({
           <h2>Settings</h2>
         </div>
 
+                  <label className='mode-label'>
+            <span>mode</span>
+            <select
+              value={settings.mode}
+              onChange={(event) => onChange('mode', event.target.value)}
+            >
+              <option value="random">random</option>
+              <option value="contributions">contributions</option>
+            </select>
+          </label>
+
         <div className="settings-actions">
           <button
             type="button"
             className="button-secondary"
             onClick={onReset}
           >
-            Сбросить
+            Reset
           </button>
 
           <button type="button" onClick={onToggle}>
-            {isOpen ? 'Скрыть' : 'Показать'}
+            {isOpen ? 'Hide' : 'Show'}
           </button>
         </div>
       </div>
@@ -44,7 +55,7 @@ export function SettingsPanel({
             <input
               value={settings.login}
               onChange={(event) => onChange('login', event.target.value)}
-              placeholder="your-login"
+              placeholder="your login"
             />
           </label>
 
@@ -62,20 +73,10 @@ export function SettingsPanel({
             <input
               value={settings.blacklist}
               onChange={(event) => onChange('blacklist', event.target.value)}
-              placeholder='user1, user2 или ["user1", "user2"]'
+              placeholder='user1, user2 or [user1, user2]'
             />
           </label>
 
-          <label>
-            <span>mode</span>
-            <select
-              value={settings.mode}
-              onChange={(event) => onChange('mode', event.target.value)}
-            >
-              <option value="random">random</option>
-              <option value="contributions">contributions</option>
-            </select>
-          </label>
         </div>
       ) : null}
     </section>

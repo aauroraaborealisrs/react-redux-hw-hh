@@ -11,7 +11,7 @@ export function ReviewerResult({ reviewer }: ReviewerResultProps) {
 
   return (
     <div className="result">
-      <div className="result-label">Результат</div>
+      <div className="result-label">Result</div>
 
       <img
         src={reviewer.avatar_url}
