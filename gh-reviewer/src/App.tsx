@@ -1,11 +1,10 @@
-import './App.css'
+import { ReviewerFinderPage } from './pages/reviewer-finder/ui/ReviewerFinderPage';
 
-function App() {
+import './App.css';
 
-  return (
-    <>
-    </>
-  )
+export function App() {
+    return <ReviewerFinderPage />;
 }
 
-export default App
+export default App;
+
