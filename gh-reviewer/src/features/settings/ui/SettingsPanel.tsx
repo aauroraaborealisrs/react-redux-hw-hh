@@ -57,7 +57,7 @@ export function SettingsPanel({ isOpen, onToggle }: SettingsPanelProps) {
                         <input
                             value={settings.blacklist}
                             onChange={(event) => dispatch(setBlacklist(event.target.value))}
-                            placeholder='user1, user2 или ["user1", "user2"]'
+                            placeholder="user1, user2 or [user1, user2]"
                         />
                     </label>
 

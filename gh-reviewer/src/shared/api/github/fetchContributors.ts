@@ -41,9 +41,15 @@ function getErrorMessage(response: Response, data: unknown): string {
     return 'Ошибка запроса к GitHub API';
 }
 
-export async function fetchContributors(repo: string, signal?: AbortSignal): Promise<GithubUser[]> {
+type FetchContributorsResult = {
+    contributors: GithubUser[];
+    isTruncated: boolean;
+};
+
+export async function fetchContributors(repo: string, signal?: AbortSignal): Promise<FetchContributorsResult> {
     const [owner, repoName] = repo.split('/');
     const result: GithubUser[] = [];
+    let isTruncated = false;
 
     for (let page = 1; page <= MAX_PAGES; page += 1) {
         let response: Response;
@@ -68,7 +74,10 @@ export async function fetchContributors(repo: string, signal?: AbortSignal): Pro
         }
 
         if (response.status === 204) {
-            return [];
+            return {
+                contributors: [],
+                isTruncated: false,
+            };
         }
 
         let data: unknown;
@@ -94,9 +103,12 @@ export async function fetchContributors(repo: string, signal?: AbortSignal): Pro
         }
 
         if (page === MAX_PAGES) {
-            console.warn('Contributors list truncated due to MAX_PAGES limit');
+            isTruncated = true;
         }
     }
 
-    return result;
+    return {
+        contributors: result,
+        isTruncated,
+    };
 }

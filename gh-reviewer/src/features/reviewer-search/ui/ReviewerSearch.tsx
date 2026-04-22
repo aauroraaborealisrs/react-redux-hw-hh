@@ -6,7 +6,7 @@ import { ReviewerHeader } from './ReviewerHeader';
 import { ReviewerResult } from './ReviewerResult';
 import { ReviewerRoulette } from './ReviewerRoulette';
 
-export function ReviewerSearch() {
+function ReviewerSearchContent() {
     const settings = useAppSelector((state) => state.settings);
 
     const {
@@ -14,6 +14,7 @@ export function ReviewerSearch() {
         filteredCandidates,
         loading,
         error,
+        isTruncated,
         selectedReviewer,
         isAnimating,
         animatedList,
@@ -40,6 +41,8 @@ export function ReviewerSearch() {
                     onFind={handleFindReviewer}
                 />
 
+                {isTruncated ? <div className="warning">Показаны не все контрибьюторы (ограничение API)</div> : null}
+
                 {error ? <div className="error">{error}</div> : null}
 
                 <ReviewerRoulette
@@ -54,4 +57,11 @@ export function ReviewerSearch() {
             </section>
         </>
     );
+}
+
+export function ReviewerSearch() {
+    const settings = useAppSelector((state) => state.settings);
+    const settingsKey = `${settings.login}|${settings.repo}|${settings.blacklist}|${settings.mode}`;
+
+    return <ReviewerSearchContent key={settingsKey} />;
 }

@@ -22,6 +22,7 @@ type UseReviewerSearchResult = {
     filteredCandidates: GithubUser[];
     loading: boolean;
     error: string;
+    isTruncated: boolean;
     selectedReviewer: GithubUser | null;
     isAnimating: boolean;
     animatedList: GithubUser[];
@@ -41,11 +42,7 @@ function pickTopContributor(candidates: GithubUser[]): GithubUser | null {
         const topContributions = topCandidate.contributions ?? 0;
         const currentContributions = currentCandidate.contributions ?? 0;
 
-        if (currentContributions > topContributions) {
-            return currentCandidate;
-        }
-
-        return topCandidate;
+        return currentContributions > topContributions ? currentCandidate : topCandidate;
     });
 }
 
@@ -69,6 +66,9 @@ export function useReviewerSearch(settings: Settings): UseReviewerSearchResult {
     const contributors = useAppSelector(
         (state) => state.github.contributorsByRepo[repoKey]?.contributors ?? EMPTY_CONTRIBUTORS
     );
+
+    const isTruncated = useAppSelector((state) => state.github.contributorsByRepo[repoKey]?.isTruncated ?? false);
+
     const loading = useAppSelector((state) => state.github.loading);
     const error = useAppSelector((state) => state.github.error);
 
@@ -82,15 +82,11 @@ export function useReviewerSearch(settings: Settings): UseReviewerSearchResult {
 
     const blacklistSet = useMemo(() => new Set(parseBlacklist(settings.blacklist)), [settings.blacklist]);
 
-    const filteredCandidates = useMemo(
-        () =>
-            filterCandidates({
-                users: contributors,
-                currentLogin: settings.login,
-                blacklistSet,
-            }),
-        [contributors, settings.login, blacklistSet]
-    );
+    const filteredCandidates = useMemo(() => filterCandidates({
+            users: contributors,
+            currentLogin: settings.login,
+            blacklistSet,
+        }), [contributors, settings.login, blacklistSet]);
 
     const clearAnimation = useCallback(() => {
         if (intervalRef.current !== null) {
@@ -106,23 +102,10 @@ export function useReviewerSearch(settings: Settings): UseReviewerSearchResult {
         }
     }, []);
 
-    useEffect(
-        () => () => {
+    useEffect(() => () => {
             clearAnimation();
             abortRequest();
-        },
-        [clearAnimation, abortRequest]
-    );
-
-    useEffect(() => {
-        clearAnimation();
-        abortRequest();
-        setAnimatedList([]);
-        setOffsetIndex(0);
-        setIsAnimating(false);
-        setSelectedReviewer(null);
-        dispatch(clearGithubError());
-    }, [settings.mode, settings.repo, settings.login, settings.blacklist, clearAnimation, abortRequest, dispatch]);
+        }, [clearAnimation, abortRequest]);
 
     const runAnimation = useCallback(
         (candidates: GithubUser[]) => {
@@ -166,8 +149,6 @@ export function useReviewerSearch(settings: Settings): UseReviewerSearchResult {
                     }
 
                     currentIndex += direction;
-                } else {
-                    currentIndex = 0;
                 }
 
                 setOffsetIndex(currentIndex);
@@ -176,6 +157,7 @@ export function useReviewerSearch(settings: Settings): UseReviewerSearchResult {
                     clearAnimation();
 
                     const winnerIndex = candidates.findIndex((user) => user.login === winner.login);
+
                     const finalIndex = winnerIndex >= 0 ? winnerIndex : 0;
 
                     setOffsetIndex(finalIndex);
@@ -191,6 +173,7 @@ export function useReviewerSearch(settings: Settings): UseReviewerSearchResult {
         dispatch(clearGithubError());
         abortRequest();
         clearAnimation();
+
         setAnimatedList([]);
         setOffsetIndex(0);
         setIsAnimating(false);
@@ -224,7 +207,7 @@ export function useReviewerSearch(settings: Settings): UseReviewerSearchResult {
             requestRef.current = null;
 
             if (fetchContributorsThunk.rejected.match(resultAction)) {
-                if (resultAction.payload === 'aborted') {
+                if (resultAction.payload === 'aborted' || resultAction.error.name === 'AbortError') {
                     return;
                 }
 
@@ -267,6 +250,7 @@ export function useReviewerSearch(settings: Settings): UseReviewerSearchResult {
         filteredCandidates,
         loading,
         error,
+        isTruncated,
         selectedReviewer,
         isAnimating,
         animatedList,

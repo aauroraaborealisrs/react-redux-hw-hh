@@ -387,3 +387,7 @@ button:disabled {
         max-width: 100%;
     }
 }
+
+.warning {
+    text-align: center;
+}

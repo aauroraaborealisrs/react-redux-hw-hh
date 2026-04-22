@@ -6,6 +6,7 @@ import type { GithubUser } from '../../../shared/types/github';
 type CachedRepoEntry = {
     contributors: GithubUser[];
     fetchedAt: number;
+    isTruncated: boolean;
 };
 
 type GithubState = {
@@ -21,16 +22,17 @@ const initialState: GithubState = {
 };
 
 export const fetchContributorsThunk = createAsyncThunk<
-    { repo: string; contributors: GithubUser[] },
+    { repo: string; contributors: GithubUser[]; isTruncated: boolean },
     string,
     { rejectValue: string }
 >('github/fetchContributors', async (repo, { rejectWithValue, signal }) => {
     try {
-        const contributors = await fetchContributors(repo, signal);
+        const { contributors, isTruncated } = await fetchContributors(repo, signal);
 
         return {
             repo,
             contributors,
+            isTruncated,
         };
     } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
@@ -68,16 +70,17 @@ const githubSlice = createSlice({
                 state.contributorsByRepo[action.payload.repo] = {
                     contributors: action.payload.contributors,
                     fetchedAt: Date.now(),
+                    isTruncated: action.payload.isTruncated,
                 };
             })
             .addCase(fetchContributorsThunk.rejected, (state, action) => {
                 state.loading = false;
 
-                if (action.payload === 'aborted') {
+                if (action.payload === 'aborted' || action.error.name === 'AbortError') {
                     return;
                 }
 
-                state.error = action.payload ?? 'Неизвестная ошибка';
+                state.error = action.payload ?? action.error.message ?? 'Неизвестная ошибка';
             });
     },
 });
