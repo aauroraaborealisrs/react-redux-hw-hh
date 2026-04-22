@@ -1,16 +1,14 @@
+import { useAppSelector } from '../../../app/store/hooks';
 import { UserInfoCard } from '../../../entities/github-user/ui/UserInfoCard';
-import type { Settings } from '../../../shared/types/settings';
 import { useReviewerSearch } from '../model/useReviewerSearch';
 
 import { ReviewerHeader } from './ReviewerHeader';
 import { ReviewerResult } from './ReviewerResult';
 import { ReviewerRoulette } from './ReviewerRoulette';
 
-type ReviewerSearchProps = {
-    settings: Settings;
-};
+export function ReviewerSearch() {
+    const settings = useAppSelector((state) => state.settings);
 
-export function ReviewerSearch({ settings }: ReviewerSearchProps) {
     const {
         contributors,
         filteredCandidates,
@@ -52,7 +50,7 @@ export function ReviewerSearch({ settings }: ReviewerSearchProps) {
                     centerIndex={centerIndex}
                 />
 
-                <ReviewerResult reviewer={selectedReviewer} />
+                <ReviewerResult reviewer={selectedReviewer} mode={settings.mode} />
             </section>
         </>
     );

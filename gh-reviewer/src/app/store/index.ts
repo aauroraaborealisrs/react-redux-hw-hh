@@ -1,13 +1,15 @@
 import { configureStore } from '@reduxjs/toolkit';
 
 import { githubReducer } from '../../entities/github-user/model/githubSlice';
-import { reviewerReducer } from '../../features/reviewer-search/model/reviewerSlice';
+import { settingsMiddleware } from '../../features/settings/model/settingsMiddleware';
+import { settingsReducer } from '../../features/settings/model/settingsSlice';
 
 export const store = configureStore({
     reducer: {
         github: githubReducer,
-        reviewer: reviewerReducer,
+        settings: settingsReducer,
     },
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(settingsMiddleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

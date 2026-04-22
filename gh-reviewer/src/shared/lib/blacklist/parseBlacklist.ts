@@ -14,7 +14,7 @@ export function parseBlacklist(value: string): string[] {
             }
         }
     } catch {
-        //не придумала
+        //в реальном проекте полетит в багтрекер
     }
 
     const normalized = trimmed.replace(/^\[/, '').replace(/\]$/, '');

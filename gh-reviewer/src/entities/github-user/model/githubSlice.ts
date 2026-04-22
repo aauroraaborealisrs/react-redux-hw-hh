@@ -1,8 +1,7 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
 import { fetchContributors } from '../../../shared/api/github/fetchContributors';
-
-import type { GithubUser } from './types';
+import type { GithubUser } from '../../../shared/types/github';
 
 type CachedRepoEntry = {
     contributors: GithubUser[];
@@ -25,15 +24,19 @@ export const fetchContributorsThunk = createAsyncThunk<
     { repo: string; contributors: GithubUser[] },
     string,
     { rejectValue: string }
->('github/fetchContributors', async (repo, { rejectWithValue }) => {
+>('github/fetchContributors', async (repo, { rejectWithValue, signal }) => {
     try {
-        const contributors = await fetchContributors(repo);
+        const contributors = await fetchContributors(repo, signal);
 
         return {
             repo,
             contributors,
         };
     } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+            return rejectWithValue('aborted');
+        }
+
         return rejectWithValue(error instanceof Error ? error.message : 'Неизвестная ошибка');
     }
 });
@@ -69,11 +72,15 @@ const githubSlice = createSlice({
             })
             .addCase(fetchContributorsThunk.rejected, (state, action) => {
                 state.loading = false;
+
+                if (action.payload === 'aborted') {
+                    return;
+                }
+
                 state.error = action.payload ?? 'Неизвестная ошибка';
             });
     },
 });
 
 export const { clearGithubState, clearGithubError, setGithubError } = githubSlice.actions;
-
 export const githubReducer = githubSlice.reducer;

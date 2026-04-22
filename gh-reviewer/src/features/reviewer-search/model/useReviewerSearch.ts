@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAppDispatch, useAppSelector } from '../../../app/store/hooks';
 import {
@@ -6,22 +6,16 @@ import {
     fetchContributorsThunk,
     setGithubError,
 } from '../../../entities/github-user/model/githubSlice';
-import type { GithubUser } from '../../../entities/github-user/model/types';
 import { parseBlacklist } from '../../../shared/lib/blacklist/parseBlacklist';
 import { validateRepo } from '../../../shared/lib/repo/validateRepo';
+import { filterCandidates } from '../../../shared/lib/reviewer/filterCandidates';
+import type { GithubUser } from '../../../shared/types/github';
 import type { Settings } from '../../../shared/types/settings';
-
-import {
-    resetReviewerState,
-    setAnimatedList,
-    setIsAnimating,
-    setOffsetIndex,
-    setSelectedReviewer,
-} from './reviewerSlice';
 
 const ITEM_HEIGHT = 56;
 const VISIBLE_ITEMS = 5;
 const CENTER_INDEX = Math.floor(VISIBLE_ITEMS / 2);
+const EMPTY_CONTRIBUTORS: GithubUser[] = [];
 
 type UseReviewerSearchResult = {
     contributors: GithubUser[];
@@ -67,66 +61,36 @@ function pickWinner(candidates: GithubUser[], mode: 'random' | 'contributions'):
     return candidates[Math.floor(Math.random() * candidates.length)] ?? null;
 }
 
-function buildVisibleList(candidates: GithubUser[]): GithubUser[] {
-    if (candidates.length === 0) {
-        return [];
-    }
-
-    if (candidates.length >= VISIBLE_ITEMS) {
-        return candidates;
-    }
-
-    const result: GithubUser[] = [];
-    let index = 0;
-
-    while (result.length < VISIBLE_ITEMS) {
-        result.push(candidates[index % candidates.length]);
-        index += 1;
-    }
-
-    return result;
-}
-
 export function useReviewerSearch(settings: Settings): UseReviewerSearchResult {
     const dispatch = useAppDispatch();
 
     const repoKey = settings.repo.trim();
 
-    const contributors = useAppSelector((state) => state.github.contributorsByRepo[repoKey]?.contributors ?? []);
+    const contributors = useAppSelector(
+        (state) => state.github.contributorsByRepo[repoKey]?.contributors ?? EMPTY_CONTRIBUTORS
+    );
     const loading = useAppSelector((state) => state.github.loading);
     const error = useAppSelector((state) => state.github.error);
 
-    const selectedReviewer = useAppSelector((state) => state.reviewer.selectedReviewer);
-    const isAnimating = useAppSelector((state) => state.reviewer.isAnimating);
-    const animatedList = useAppSelector((state) => state.reviewer.animatedList);
-    const offsetIndex = useAppSelector((state) => state.reviewer.offsetIndex);
+    const [selectedReviewer, setSelectedReviewer] = useState<GithubUser | null>(null);
+    const [isAnimating, setIsAnimating] = useState(false);
+    const [animatedList, setAnimatedList] = useState<GithubUser[]>([]);
+    const [offsetIndex, setOffsetIndex] = useState(0);
 
     const intervalRef = useRef<number | null>(null);
+    const requestRef = useRef<{ abort: () => void } | null>(null);
 
-    const blacklist = useMemo(() => parseBlacklist(settings.blacklist), [settings.blacklist]);
+    const blacklistSet = useMemo(() => new Set(parseBlacklist(settings.blacklist)), [settings.blacklist]);
 
-    const filteredCandidates = useMemo(() => {
-        const currentUser = settings.login.trim().toLowerCase();
-        const blacklistSet = new Set(blacklist);
-
-        return contributors.filter((user) => {
-            const candidateLogin = user.login.toLowerCase();
-
-            if (user.type === 'Bot' || candidateLogin.endsWith('[bot]')) {
-                return false;
-            }
-
-            if (candidateLogin === currentUser) {
-                return false;
-            }
-
-            if (blacklistSet.has(candidateLogin)) {
-                return false;
-            }
-
-            return true;
-        });
-    }, [blacklist, contributors, settings.login]);
+    const filteredCandidates = useMemo(
+        () =>
+            filterCandidates({
+                users: contributors,
+                currentLogin: settings.login,
+                blacklistSet,
+            }),
+        [contributors, settings.login, blacklistSet]
+    );
 
     const clearAnimation = useCallback(() => {
         if (intervalRef.current !== null) {
@@ -135,51 +99,61 @@ export function useReviewerSearch(settings: Settings): UseReviewerSearchResult {
         }
     }, []);
 
+    const abortRequest = useCallback(() => {
+        if (requestRef.current) {
+            requestRef.current.abort();
+            requestRef.current = null;
+        }
+    }, []);
+
     useEffect(
         () => () => {
             clearAnimation();
+            abortRequest();
         },
-        [clearAnimation]
+        [clearAnimation, abortRequest]
     );
 
     useEffect(() => {
         clearAnimation();
-        dispatch(resetReviewerState());
+        abortRequest();
+        setAnimatedList([]);
+        setOffsetIndex(0);
+        setIsAnimating(false);
+        setSelectedReviewer(null);
         dispatch(clearGithubError());
-    }, [settings.mode, settings.repo, settings.login, settings.blacklist, clearAnimation, dispatch]);
+    }, [settings.mode, settings.repo, settings.login, settings.blacklist, clearAnimation, abortRequest, dispatch]);
 
     const runAnimation = useCallback(
         (candidates: GithubUser[]) => {
             clearAnimation();
-            dispatch(setSelectedReviewer(null));
+            setSelectedReviewer(null);
 
             const winner = pickWinner(candidates, settings.mode);
 
             if (!winner) {
-                dispatch(setIsAnimating(false));
+                setIsAnimating(false);
                 return;
             }
-
-            const visibleList = buildVisibleList(candidates);
-            const maxOffset = Math.max(0, visibleList.length - VISIBLE_ITEMS);
 
             if (settings.mode === 'contributions') {
-                dispatch(setAnimatedList([]));
-                dispatch(setOffsetIndex(0));
-                dispatch(setSelectedReviewer(winner));
-                dispatch(setIsAnimating(false));
+                setAnimatedList([]);
+                setOffsetIndex(0);
+                setSelectedReviewer(winner);
+                setIsAnimating(false);
                 return;
             }
 
-            dispatch(setAnimatedList(visibleList));
-            dispatch(setIsAnimating(true));
+            setAnimatedList(candidates);
+            setIsAnimating(true);
 
             let currentIndex = 0;
             let direction = 1;
             let ticks = 0;
             const totalTicks = 10;
+            const maxOffset = Math.max(0, candidates.length - 1);
 
-            dispatch(setOffsetIndex(currentIndex));
+            setOffsetIndex(currentIndex);
 
             intervalRef.current = window.setInterval(() => {
                 ticks += 1;
@@ -196,27 +170,31 @@ export function useReviewerSearch(settings: Settings): UseReviewerSearchResult {
                     currentIndex = 0;
                 }
 
-                dispatch(setOffsetIndex(currentIndex));
+                setOffsetIndex(currentIndex);
 
                 if (ticks >= totalTicks) {
                     clearAnimation();
 
-                    const winnerIndex = visibleList.findIndex((user) => user.login === winner.login);
-                    const finalOffset = Math.min(Math.max(0, winnerIndex - CENTER_INDEX), maxOffset);
+                    const winnerIndex = candidates.findIndex((user) => user.login === winner.login);
+                    const finalIndex = winnerIndex >= 0 ? winnerIndex : 0;
 
-                    dispatch(setOffsetIndex(finalOffset));
-                    dispatch(setSelectedReviewer(winner));
-                    dispatch(setIsAnimating(false));
+                    setOffsetIndex(finalIndex);
+                    setSelectedReviewer(winner);
+                    setIsAnimating(false);
                 }
             }, 100);
         },
-        [clearAnimation, dispatch, settings.mode]
+        [clearAnimation, settings.mode]
     );
 
     const handleFindReviewer = useCallback(async () => {
         dispatch(clearGithubError());
+        abortRequest();
         clearAnimation();
-        dispatch(resetReviewerState());
+        setAnimatedList([]);
+        setOffsetIndex(0);
+        setIsAnimating(false);
+        setSelectedReviewer(null);
 
         const login = settings.login.trim();
         const repo = settings.repo.trim();
@@ -239,9 +217,17 @@ export function useReviewerSearch(settings: Settings): UseReviewerSearchResult {
         let users = contributors;
 
         if (users.length === 0) {
-            const resultAction = await dispatch(fetchContributorsThunk(repo));
+            const promise = dispatch(fetchContributorsThunk(repo));
+            requestRef.current = promise;
+
+            const resultAction = await promise;
+            requestRef.current = null;
 
             if (fetchContributorsThunk.rejected.match(resultAction)) {
+                if (resultAction.payload === 'aborted') {
+                    return;
+                }
+
                 return;
             }
 
@@ -253,25 +239,10 @@ export function useReviewerSearch(settings: Settings): UseReviewerSearchResult {
             return;
         }
 
-        const blacklistSet = new Set(parseBlacklist(settings.blacklist));
-        const currentUser = login.toLowerCase();
-
-        const candidates = users.filter((user) => {
-            const candidateLogin = user.login.toLowerCase();
-
-            if (user.type === 'Bot' || candidateLogin.endsWith('[bot]')) {
-                return false;
-            }
-
-            if (candidateLogin === currentUser) {
-                return false;
-            }
-
-            if (blacklistSet.has(candidateLogin)) {
-                return false;
-            }
-
-            return true;
+        const candidates = filterCandidates({
+            users,
+            currentLogin: login,
+            blacklistSet,
         });
 
         if (candidates.length === 0) {
@@ -280,7 +251,16 @@ export function useReviewerSearch(settings: Settings): UseReviewerSearchResult {
         }
 
         runAnimation(candidates);
-    }, [clearAnimation, contributors, dispatch, runAnimation, settings.blacklist, settings.login, settings.repo]);
+    }, [
+        abortRequest,
+        blacklistSet,
+        clearAnimation,
+        contributors,
+        dispatch,
+        runAnimation,
+        settings.login,
+        settings.repo,
+    ]);
 
     return {
         contributors,

@@ -1,31 +1,14 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 
 import { ReviewerSearch } from '../../../features/reviewer-search/ui/ReviewerSearch';
 import { SettingsPanel } from '../../../features/settings/ui/SettingsPanel';
-import { useSettingsStorage } from '../../../shared/hooks/useSettingsStorage';
-import type { Settings } from '../../../shared/types/settings';
 
 export function ReviewerFinderWidget() {
-    const { settings, setSettings, resetSettings } = useSettingsStorage();
     const [isSettingsOpen, setIsSettingsOpen] = useState(true);
 
-    const handleToggleSettings = useCallback(() => {
+    const handleToggleSettings = () => {
         setIsSettingsOpen((prev) => !prev);
-    }, []);
-
-    const handleChangeSettings = useCallback(
-        (field: keyof Settings, value: string) => {
-            setSettings((prev) => ({
-                ...prev,
-                [field]: value,
-            }));
-        },
-        [setSettings]
-    );
-
-    const handleResetSettings = useCallback(() => {
-        resetSettings();
-    }, [resetSettings]);
+    };
 
     return (
         <div className="page">
@@ -34,15 +17,9 @@ export function ReviewerFinderWidget() {
                     <h1>Reviewer Finder</h1>
                 </div>
 
-                <SettingsPanel
-                    settings={settings}
-                    isOpen={isSettingsOpen}
-                    onToggle={handleToggleSettings}
-                    onChange={handleChangeSettings}
-                    onReset={handleResetSettings}
-                />
+                <SettingsPanel isOpen={isSettingsOpen} onToggle={handleToggleSettings} />
 
-                <ReviewerSearch settings={settings} />
+                <ReviewerSearch />
             </div>
         </div>
     );

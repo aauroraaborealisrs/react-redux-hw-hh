@@ -1,14 +1,19 @@
-import type { Settings } from '../../../shared/types/settings';
+import { useAppDispatch, useAppSelector } from '../../../app/store/hooks';
+import { resetSettings, setBlacklist, setLogin, setMode, setRepo } from '../model/settingsSlice';
 
 type SettingsPanelProps = {
-    settings: Settings;
     isOpen: boolean;
     onToggle: () => void;
-    onChange: (field: keyof Settings, value: string) => void;
-    onReset: () => void;
 };
 
-export function SettingsPanel({ settings, isOpen, onToggle, onChange, onReset }: SettingsPanelProps) {
+export function SettingsPanel({ isOpen, onToggle }: SettingsPanelProps) {
+    const dispatch = useAppDispatch();
+    const settings = useAppSelector((state) => state.settings);
+
+    const handleReset = () => {
+        dispatch(resetSettings());
+    };
+
     return (
         <section className="card">
             <div className="settings-header">
@@ -16,16 +21,8 @@ export function SettingsPanel({ settings, isOpen, onToggle, onChange, onReset }:
                     <h2>Settings</h2>
                 </div>
 
-                <label className="mode-label">
-                    <span>mode</span>
-                    <select value={settings.mode} onChange={(event) => onChange('mode', event.target.value)}>
-                        <option value="random">random</option>
-                        <option value="contributions">contributions</option>
-                    </select>
-                </label>
-
                 <div className="settings-actions">
-                    <button type="button" className="button-secondary" onClick={onReset}>
+                    <button type="button" className="button-secondary" onClick={handleReset}>
                         Reset
                     </button>
 
@@ -41,8 +38,8 @@ export function SettingsPanel({ settings, isOpen, onToggle, onChange, onReset }:
                         <span>login</span>
                         <input
                             value={settings.login}
-                            onChange={(event) => onChange('login', event.target.value)}
-                            placeholder="your login"
+                            onChange={(event) => dispatch(setLogin(event.target.value))}
+                            placeholder="your-login"
                         />
                     </label>
 
@@ -50,7 +47,7 @@ export function SettingsPanel({ settings, isOpen, onToggle, onChange, onReset }:
                         <span>repo</span>
                         <input
                             value={settings.repo}
-                            onChange={(event) => onChange('repo', event.target.value)}
+                            onChange={(event) => dispatch(setRepo(event.target.value))}
                             placeholder="owner/repo"
                         />
                     </label>
@@ -59,9 +56,22 @@ export function SettingsPanel({ settings, isOpen, onToggle, onChange, onReset }:
                         <span>blacklist</span>
                         <input
                             value={settings.blacklist}
-                            onChange={(event) => onChange('blacklist', event.target.value)}
-                            placeholder="user1, user2 or [user1, user2]"
+                            onChange={(event) => dispatch(setBlacklist(event.target.value))}
+                            placeholder='user1, user2 или ["user1", "user2"]'
                         />
+                    </label>
+
+                    <label>
+                        <span>mode</span>
+                        <select
+                            value={settings.mode}
+                            onChange={(event) =>
+                                dispatch(setMode(event.target.value === 'contributions' ? 'contributions' : 'random'))
+                            }
+                        >
+                            <option value="random">random</option>
+                            <option value="contributions">contributions</option>
+                        </select>
                     </label>
                 </div>
             ) : null}

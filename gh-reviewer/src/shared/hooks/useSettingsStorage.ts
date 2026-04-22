@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { SETTINGS_STORAGE_KEY } from '../config/storage';
 import type { Settings } from '../types/settings';
@@ -10,14 +10,15 @@ export const defaultSettings: Settings = {
     mode: 'random',
 };
 
-function loadSettings(): Settings {
+// я исправила функцию, как ты говорил, но потом была правка перенести в middleware,
+// но я решила оставить этот компонент, отметиться, что поняла как надо делать
+
+function parseStoredSettings(raw: string | null): Settings {
+    if (!raw) {
+        return defaultSettings;
+    }
+
     try {
-        const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
-
-        if (!raw) {
-            return defaultSettings;
-        }
-
         const parsed = JSON.parse(raw) as Partial<Settings>;
 
         return {
@@ -32,9 +33,22 @@ function loadSettings(): Settings {
 }
 
 export function useSettingsStorage() {
-    const [settings, setSettings] = useState<Settings>(loadSettings);
+    const [settings, setSettings] = useState<Settings>(defaultSettings);
+    const isHydratedRef = useRef(false);
+
+    useLayoutEffect(() => {
+        const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+        const storedSettings = parseStoredSettings(raw);
+
+        setSettings(storedSettings);
+        isHydratedRef.current = true;
+    }, []);
 
     useEffect(() => {
+        if (!isHydratedRef.current) {
+            return;
+        }
+
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
     }, [settings]);
 

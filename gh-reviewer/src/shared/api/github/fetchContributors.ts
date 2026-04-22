@@ -1,7 +1,8 @@
-import type { GithubUser } from '../../../entities/github-user/model/types';
+import type { GithubUser } from '../../types/github';
 
 const GITHUB_API_BASE = 'https://api.github.com';
 const GITHUB_API_VERSION = '2022-11-28';
+const MAX_PAGES = 10;
 
 function getErrorMessage(response: Response, data: unknown): string {
     if (response.status === 404) {
@@ -40,12 +41,11 @@ function getErrorMessage(response: Response, data: unknown): string {
     return 'Ошибка запроса к GitHub API';
 }
 
-export async function fetchContributors(repo: string): Promise<GithubUser[]> {
+export async function fetchContributors(repo: string, signal?: AbortSignal): Promise<GithubUser[]> {
     const [owner, repoName] = repo.split('/');
     const result: GithubUser[] = [];
-    let page = 1;
 
-    while (true) {
+    for (let page = 1; page <= MAX_PAGES; page += 1) {
         let response: Response;
 
         try {
@@ -56,9 +56,14 @@ export async function fetchContributors(repo: string): Promise<GithubUser[]> {
                         Accept: 'application/vnd.github+json',
                         'X-GitHub-Api-Version': GITHUB_API_VERSION,
                     },
+                    signal,
                 }
             );
-        } catch {
+        } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                throw error;
+            }
+
             throw new Error('Сетевая ошибка. Проверь интернет и попробуй снова');
         }
 
@@ -88,7 +93,9 @@ export async function fetchContributors(repo: string): Promise<GithubUser[]> {
             break;
         }
 
-        page += 1;
+        if (page === MAX_PAGES) {
+            console.warn('Contributors list truncated due to MAX_PAGES limit');
+        }
     }
 
     return result;
